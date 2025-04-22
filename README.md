@@ -1,5 +1,5 @@
 # CrazyCattle3D Web Port
-## You can play the game [here](https://athrn.dev/cattle/)!
+## You can play the game at [crazycattle.club](https://crazycattle.club)!
 
 This repository contains an HTML5 port of the game **CrazyCattle3D** by Anna.  
 The original Godot project files were downloaded from the [official itch.io page](https://4nn4t4t.itch.io/crazycattle3d), all credits go to Anna for these.
