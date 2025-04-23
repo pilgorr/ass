@@ -33,24 +33,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y binaryen
 
-      # 4. Download & install Godot 4.4.1 + HTML5 export templates
+      # 4. Download & install Godot + HTML5 templates
       - name: Download Godot & HTML5 templates
         run: |
           rm -rf godot
           mkdir -p godot
-
-          # Engine binary
+      
+          # Download Godot engine binary
           wget -q https://github.com/godotengine/godot-builds/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
           unzip -q Godot_v4.4.1-stable_linux.x86_64.zip -d godot
           chmod +x godot/Godot_v4.4.1-stable_linux.x86_64
           sudo mv godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
-
-          # HTML5 export templates (SourceForge mirror)
-          wget -q \
-            "https://sourceforge.net/projects/godot-engine.mirror/files/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz/download" \
-            -O export_templates.tpz
+      
+          # Download HTML5 export templates from GitHub Releases
+          wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz -O export_templates.tpz
           unzip -q export_templates.tpz -d godot/templates
-
+      
           # Install templates into Godot's expected path
           mkdir -p ~/.local/share/godot/export_templates/4.4.1.stable
           find godot/templates -type f -name 'web*.zip' \
