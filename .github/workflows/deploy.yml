@@ -73,8 +73,13 @@ jobs:
       - name: Import script
         run: |
           sed -i "/<\/body>/i \
-          <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "cae7fb1a7f1f4512a5c1c7edd9b3b243"}'></script>" \
-            html5/index.html
+          <script>\n\
+          const beacon = document.createElement('script');\n\
+          beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';\n\
+          beacon.defer = true;\n\
+          beacon.setAttribute('data-cf-beacon', JSON.stringify({ token: 'cae7fb1a7f1f4512a5c1c7edd9b3b243' }));\n\
+          document.head.appendChild(beacon);\n\
+          </script>" html5/index.html
 
       # 9. Minify HTML
       - name: Minify HTML
