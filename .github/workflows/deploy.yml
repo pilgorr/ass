@@ -1,13 +1,11 @@
-name: Build & Deploy to GitHub Pages
+name: Build & Deploy to GitHub + Cloudflare Pages
 
-on:
-  push:
-    branches:
-      - main
+on: push
 
 permissions:
   contents: read
   pages: write
+  deployments: write
   id-token: write
 
 jobs:
@@ -15,11 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout your code
+      # Checkout and setup
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Install Node.js (for Terser)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -27,47 +24,36 @@ jobs:
       - name: Install Terser CLI
         run: npm install terser
 
-      # 3. Install wasm-opt (Binaryen)
       - name: Install Binaryen
         run: |
           sudo apt-get update
           sudo apt-get install -y binaryen
 
-      # 4. Download & install Godot + HTML5 templates
+      # Godot setup
       - name: Download Godot & HTML5 templates
         run: |
           rm -rf godot
           mkdir -p godot
-      
-          # Download Godot engine binary
           wget -q https://github.com/godotengine/godot-builds/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
           unzip -q Godot_v4.4.1-stable_linux.x86_64.zip -d godot
           chmod +x godot/Godot_v4.4.1-stable_linux.x86_64
           sudo mv godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
-      
-          # Download HTML5 export templates from GitHub Releases
           wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz -O export_templates.tpz
           unzip -q export_templates.tpz -d godot/templates
-      
-          # Install templates into Godot's expected path
           mkdir -p ~/.local/share/godot/export_templates/4.4.1.stable
-          find godot/templates -type f -name 'web*.zip' \
-            -exec cp {} ~/.local/share/godot/export_templates/4.4.1.stable/ \;
+          find godot/templates -type f -name 'web*.zip' -exec cp {} ~/.local/share/godot/export_templates/4.4.1.stable/ \;
 
-      # 5. Ensure export directory exists
+      # Export game
       - name: Prepare HTML5 output directory
         run: mkdir -p html5
 
-      # 6. Export headless HTML5 (release build)
       - name: Export HTML5 build (release)
         run: |
           godot --headless --path . --export-release Web html5/CrazyCattle3D.html
 
-      # 7. Rename HTML to index.html
       - name: Rename exported HTML
         run: mv html5/CrazyCattle3D.html html5/index.html
 
-      # 8. Import script
       - name: Import script
         run: |
           sed -i "/<\/body>/i \
@@ -79,9 +65,9 @@ jobs:
           document.head.appendChild(beacon);\n\
           </script>" html5/index.html
 
-      # 9. Minify HTML
       - name: Minify HTML
         run: |
+          npm install --no-save html-minifier-terser
           npx html-minifier-terser html5/index.html \
             --collapse-whitespace \
             --remove-comments \
@@ -89,40 +75,81 @@ jobs:
             --minify-js true \
             -o html5/index.html
 
-      # 10. Optimize the WebAssembly binary (safe flags)
       - name: Optimize WASM
         run: |
-          wasm-opt html5/CrazyCattle3D.wasm \
-            -O3 -all --vacuum \
-            -o html5/optimized.wasm
+          wasm-opt html5/CrazyCattle3D.wasm -O3 -all --vacuum -o html5/optimized.wasm
           mv html5/optimized.wasm html5/CrazyCattle3D.wasm
 
-      # 11. Minify & tree‑shake the JavaScript
-      - name: Minify & tree‑shake JS
+      - name: Minify & Tree-shake JS
         run: |
-          npx terser html5/CrazyCattle3D.js \
-            --compress --mangle \
-            --output html5/CrazyCattle3D.tmp.js
+          npx terser html5/CrazyCattle3D.js --compress --mangle -o html5/CrazyCattle3D.tmp.js
           mv html5/CrazyCattle3D.tmp.js html5/CrazyCattle3D.js
-          npx terser html5/CrazyCattle3D.audio.position.worklet.js \
-            --compress --mangle \
-            --output html5/CrazyCattle3D.audio.position.worklet.tmp.js
+          npx terser html5/CrazyCattle3D.audio.position.worklet.js --compress --mangle -o html5/CrazyCattle3D.audio.position.worklet.tmp.js
           mv html5/CrazyCattle3D.audio.position.worklet.tmp.js html5/CrazyCattle3D.audio.position.worklet.js
-          npx terser html5/CrazyCattle3D.audio.worklet.js \
-            --compress --mangle \
-            --output html5/CrazyCattle3D.audio.worklet.tmp.js
+          npx terser html5/CrazyCattle3D.audio.worklet.js --compress --mangle -o html5/CrazyCattle3D.audio.worklet.tmp.js
           mv html5/CrazyCattle3D.audio.worklet.tmp.js html5/CrazyCattle3D.audio.worklet.js
 
-      # 12. Configure GitHub Pages
+      # === Deploy to GitHub Pages (before Brotli) ===
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      # 13. Upload the html5 folder as the Pages artifact
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: html5
 
-      # 14. Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
+
+      # === Prepare Cloudflare-specific optimizations ===
+      - name: Compress WASM and PCK with Brotli
+        run: |
+          sudo apt-get install -y brotli
+          brotli -f html5/CrazyCattle3D.wasm -o html5/CrazyCattle3D.wasm.br
+          rm html5/CrazyCattle3D.wasm
+          mv html5/CrazyCattle3D.wasm.br html5/CrazyCattle3D.wasm
+          brotli -f html5/CrazyCattle3D.pck -o html5/CrazyCattle3D.pck.br
+          rm html5/CrazyCattle3D.pck
+          mv html5/CrazyCattle3D.pck.br html5/CrazyCattle3D.pck
+
+      - name: Add _headers file
+        run: |
+          echo "/*" > html5/_headers
+          echo "  Cache-Control: max-age=0, must-revalidate" >> html5/_headers
+          echo "" >> html5/_headers
+          echo "/CrazyCattle3D.wasm" >> html5/_headers
+          echo "  Content-Encoding: br" >> html5/_headers
+          echo "  Content-Type: application/wasm" >> html5/_headers
+          echo "" >> html5/_headers
+          echo "/CrazyCattle3D.pck" >> html5/_headers
+          echo "  Content-Encoding: br" >> html5/_headers
+          echo "  Content-Type: application/octet-stream" >> html5/_headers
+
+      # === Cloudflare Pages deployment with GitHub deployment record ===
+      - name: Start GitHub Deployment
+        id: start-deploy
+        uses: bobheadxi/deployments@v1
+        with:
+          step: start
+          token: ${{ secrets.GITHUB_TOKEN }}
+          env: production
+
+      - name: Publish to Cloudflare Pages
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '3.42.0'
+          command: pages deploy html5 --project-name=${{ secrets.CF_PAGES_PROJECT_NAME }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Finish GitHub Deployment
+        uses: bobheadxi/deployments@v1
+        with:
+          step: finish
+          token: ${{ secrets.GITHUB_TOKEN }}
+          env: production
+          status: success
+          deployment_id: ${{ steps.start-deploy.outputs.deployment_id }}
+          env_url: https://crazycattle.club
