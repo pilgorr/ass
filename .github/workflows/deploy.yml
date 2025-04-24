@@ -54,6 +54,11 @@ jobs:
       - name: Rename exported HTML
         run: mv html5/CrazyCattle3D.html html5/index.html
 
+      - name: Insert meta description
+        run: |
+          sed -i "/<\/title>/a \
+          <meta name='description' content='Play Crazy Cattle 3D online with NO ADS! Become a sheep and make others explode by building momentum and knocking them over. No download required.'>" html5/index.html
+
       - name: Import script
         run: |
           sed -i "/<\/body>/i \
