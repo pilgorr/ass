@@ -94,6 +94,18 @@ jobs:
           npx terser html5/CrazyCattle3D.audio.worklet.js --compress --mangle -o html5/CrazyCattle3D.audio.worklet.tmp.js
           mv html5/CrazyCattle3D.audio.worklet.tmp.js html5/CrazyCattle3D.audio.worklet.js
 
+      # Add sitemap.xml
+      - name: Add sitemap.xml
+        run: |
+          echo '<?xml version="1.0" encoding="UTF-8"?>' > html5/sitemap.xml
+          echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' >> html5/sitemap.xml
+          echo '  <url>' >> html5/sitemap.xml
+          echo '    <loc>https://crazycattle.club/</loc>' >> html5/sitemap.xml
+          echo '    <lastmod>2025-04-29</lastmod>' >> html5/sitemap.xml
+          echo '    <priority>1.0</priority>' >> html5/sitemap.xml
+          echo '  </url>' >> html5/sitemap.xml
+          echo '</urlset>' >> html5/sitemap.xml
+
       # === Deploy to GitHub Pages (before Brotli) ===
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
